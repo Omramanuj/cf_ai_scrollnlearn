@@ -3,7 +3,12 @@ import { getTopicCollection, Topic } from "../models/topicModel";
 import { getCardCollection, Card } from "../models/cardModel";
 import { ObjectId } from "mongodb";
 
-export const getAllTopics = async (env: any): Promise<Response> => {
+interface Env {
+  MONGODB_URI: string;
+  GEMINI_API_KEY: string;
+}
+
+export const getAllTopics = async (env: Env): Promise<Response> => {
   try {
     const db = await getDB(env);
     const topicCollection = await getTopicCollection(db);
@@ -31,7 +36,7 @@ export const getAllTopics = async (env: any): Promise<Response> => {
   }
 };
 
-export const getTopicWithCards = async (request: Request, env: any): Promise<Response> => {
+export const getTopicWithCards = async (request: Request, env: Env): Promise<Response> => {
   try {
     const url = new URL(request.url);
     const topicId = url.pathname.split('/').pop();

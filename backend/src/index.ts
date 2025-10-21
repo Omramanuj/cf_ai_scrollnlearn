@@ -1,6 +1,12 @@
 import { generateContent } from "./controllers/contentController";
 import { getAllTopics, getTopicWithCards } from "./controllers/topicController";
 
+// Cloudflare Workers types
+interface Env {
+  MONGODB_URI: string;
+  GEMINI_API_KEY: string;
+}
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +36,7 @@ function addCORSHeaders(response: Response): Response {
 }
 
 export default {
-  async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 

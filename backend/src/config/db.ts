@@ -1,9 +1,14 @@
 import { MongoClient } from 'mongodb';
 
+interface Env {
+  MONGODB_URI: string;
+  GEMINI_API_KEY: string;
+}
+
 // Global variable to store the client connection
 let client: MongoClient | null = null;
 
-export const connectDB = async (env: any) => {
+export const connectDB = async (env: Env) => {
   try {
     if (client) {
       return client;
@@ -24,7 +29,7 @@ export const connectDB = async (env: any) => {
   }
 };
 
-export const getDB = async (env: any) => {
+export const getDB = async (env: Env) => {
   const client = await connectDB(env);
   return client.db('scrolllearn');
 };

@@ -3,9 +3,20 @@ import { getDB } from "../config/db";
 import { getTopicCollection, Topic } from "../models/topicModel";
 import { getCardCollection, Card } from "../models/cardModel";
 
-export const generateContent = async (request: Request, env: any): Promise<Response> => {
+interface Env {
+  MONGODB_URI: string;
+  GEMINI_API_KEY: string;
+}
+
+interface RequestBody {
+  topic: string;
+  level: string;
+  description?: string;
+}
+
+export const generateContent = async (request: Request, env: Env): Promise<Response> => {
   try {
-    const body = await request.json();
+    const body = await request.json() as RequestBody;
     const { topic, level, description } = body;
 
     if (!topic || !level) {
@@ -29,7 +40,7 @@ export const generateContent = async (request: Request, env: any): Promise<Respo
     //   });
     // }
 
-    let content = await generateEducationalContent(topic, level, description, env.GEMINI_API_KEY);
+    let content = await generateEducationalContent(topic, level, description || '', env.GEMINI_API_KEY);
     if (!content) {
       return new Response(JSON.stringify({ error: "Failed to generate content" }), {
         status: 500,
