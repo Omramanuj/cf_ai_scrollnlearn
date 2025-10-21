@@ -1,8 +1,13 @@
-import mongoose from "mongoose";
+import { Collection, ObjectId } from 'mongodb';
 
-const cardSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  htmlContent: { type: String, required: true }
-});
+export interface Card {
+  _id?: ObjectId;
+  title: string;
+  htmlContent: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
-export const Card = mongoose.model("Card", cardSchema);
+export const getCardCollection = async (db: any): Promise<Collection<Card>> => {
+  return db.collection('cards');
+};

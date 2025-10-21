@@ -1,56 +1,94 @@
-import { Request, Response } from "express";
-import { Topic } from "../models/topicModel";
-import { Card } from "../models/cardModel";
+import { getDB } from "../config/db";
+import { getTopicCollection, Topic } from "../models/topicModel";
+import { getCardCollection, Card } from "../models/cardModel";
 import { ObjectId } from "mongodb";
 
-export const getAllTopics = async (req: Request, res: Response): Promise<any> => {
+export const getAllTopics = async (env: any): Promise<Response> => {
   try {
-    // Fetch all topics and populate the associated cards
-    const topics = await Topic.find();
+    const db = await getDB(env);
+    const topicCollection = await getTopicCollection(db);
+    
+    // Fetch all topics
+    const topics = await topicCollection.find({}).toArray();
 
     if (!topics || topics.length === 0) {
-      return res.status(404).json({ error: "No topics found" });
+      return new Response(JSON.stringify({ error: "No topics found" }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return res.status(200).json(topics);
+    return new Response(JSON.stringify(topics), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    console.error("Error fetching topics and cards:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("Error fetching topics:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };
 
-export const getTopicWithCards = async (req: Request, res: Response): Promise<any> => {
-    const { topicId } = req.params; // Get the topic ID from the request parameters
-    const objectId = new ObjectId(topicId);
-    try {
-      // Find the topic by ID
-      const topic = await Topic.findById(objectId).populate("content");
-  
-      if (!topic) {
-        return res.status(404).json({ error: "Topic not found" });
-      }
-      
-      // Iterate through the ObjectIds in the content array
-      // const cardIds = topic.; // Array of ObjectIds
-      // const cards = await Card.find({ _id: { $in: cardIds } }); // Fetch all cards with these ObjectIds
-  
-      // if (!cards || cards.length === 0) {
-      //   return res.status(404).json({ error: "No cards found for this topic" });
-      // }
-      console.log(topic)
-      // Return the topic along with its cards
-      return res.status(200).json(topic
-      //   {
-      //   // topic: {
-      //   //   _id: topic._id,
-      //   //   topic: topic.topic,
-      //   //   level: topic.level,
-      //   // },
-      //   // cards,
-      // }
-    );
-    } catch (error) {
-      console.error("Error fetching topic with cards:", error);
-      return res.status(500).json({ error: "Internal server error" });
+export const getTopicWithCards = async (request: Request, env: any): Promise<Response> => {
+  try {
+    const url = new URL(request.url);
+    const topicId = url.pathname.split('/').pop();
+    
+    if (!topicId) {
+      return new Response(JSON.stringify({ error: "Topic ID is required" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-  };
+
+    const objectId = new ObjectId(topicId);
+    const db = await getDB(env);
+    const topicCollection = await getTopicCollection(db);
+    const cardCollection = await getCardCollection(db);
+
+    // Find the topic by ID
+    const topic = await topicCollection.findOne({ _id: objectId });
+
+    if (!topic) {
+      return new Response(JSON.stringify({ error: "Topic not found" }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Fetch all cards for this topic
+    const cards = await cardCollection.find({ _id: { $in: topic.content } }).toArray();
+
+    if (!cards || cards.length === 0) {
+      return new Response(JSON.stringify({ error: "No cards found for this topic" }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Return the topic along with its cards
+    const result = {
+      topic: {
+        _id: topic._id,
+        topic: topic.topic,
+        level: topic.level,
+        createdAt: topic.createdAt,
+        updatedAt: topic.updatedAt
+      },
+      cards
+    };
+
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error("Error fetching topic with cards:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};

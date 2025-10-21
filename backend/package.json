@@ -1,32 +1,27 @@
 {
-  "name": "scrolllearn_server",
+  "name": "scrolllearn-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "ScrollLearn Backend API for Cloudflare Workers",
+  "main": "src/index.ts",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
     "build": "tsc",
-    "start": "node public/index.js"
+    "start": "wrangler dev"
   },
-  "keywords": [],
+  "keywords": ["cloudflare-workers", "api", "education"],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1",
+    "@cloudflare/workers-types": "^4.20241218.0",
     "@types/node": "^22.14.0",
-    "nodemon": "^3.1.9",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "wrangler": "^3.78.12"
   },
   "dependencies": {
     "@google/genai": "^0.7.0",
     "axios": "^1.8.4",
-    "body-parser": "^2.2.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^5.1.0",
-    "mongodb": "^6.15.0",
-    "mongoose": "^8.13.1"
+    "mongodb": "^6.15.0"
   }
 }

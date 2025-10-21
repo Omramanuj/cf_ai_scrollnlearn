@@ -1,37 +1,94 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import contentRoutes from "./routes/contentRoute";
-import connectDB from "./config/db";
+import { generateContent } from "./controllers/contentController";
+import { getAllTopics, getTopicWithCards } from "./controllers/topicController";
 
-
-const app = express();
-const corsOptions = {
-  origin: ['http://localhost:3000', 'https://scrollnlearn.vercel.app'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
 };
 
-app.use(cors(corsOptions));
-connectDB().then(() => {
-  console.log('Database connection established');
-}).catch((error) => {
-  console.error('Failed to connect to database:', error);
-  process.exit(1);
-});
+// Handle CORS preflight requests
+function handleCORS(request: Request): Response | null {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }
+  return null;
+}
 
-app.use(express.json());
-app.use("/api",contentRoutes)
+// Add CORS headers to response
+function addCORSHeaders(response: Response): Response {
+  const newResponse = new Response(response.body, response);
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    newResponse.headers.set(key, value);
+  });
+  return newResponse;
+}
 
+export default {
+  async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-app.get("/ping", (req: Request, res: Response) => {
-  res.send("Hello, TypeScript with Node!");
-});
+    // Handle CORS preflight
+    const corsResponse = handleCORS(request);
+    if (corsResponse) return corsResponse;
 
-app.get("/", (req: Request, res: Response) => {
-  res.status(200).json({ status: "ping-pong" });
-});
+    try {
+      // Health check endpoints
+      if (path === '/ping') {
+        return addCORSHeaders(new Response(JSON.stringify({ message: "Hello, TypeScript with Cloudflare Workers!" }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      if (path === '/' || path === '/health') {
+        return addCORSHeaders(new Response(JSON.stringify({ status: "ping-pong" }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      }
+
+      // API routes
+      if (path.startsWith('/api/')) {
+        const apiPath = path.replace('/api', '');
+
+        // Content generation endpoint
+        if (apiPath === '/request' && request.method === 'POST') {
+          const response = await generateContent(request, env);
+          return addCORSHeaders(response);
+        }
+
+        // Get all topics
+        if (apiPath === '/topics' && request.method === 'GET') {
+          const response = await getAllTopics(env);
+          return addCORSHeaders(response);
+        }
+
+        // Get topic with cards
+        if (apiPath.startsWith('/topics-content/') && request.method === 'GET') {
+          const response = await getTopicWithCards(request, env);
+          return addCORSHeaders(response);
+        }
+      }
+
+      // 404 for unmatched routes
+      return addCORSHeaders(new Response(JSON.stringify({ error: "Not Found" }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+
+    } catch (error) {
+      console.error('Error handling request:', error);
+      return addCORSHeaders(new Response(JSON.stringify({ error: "Internal Server Error" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+    }
+  },
+};

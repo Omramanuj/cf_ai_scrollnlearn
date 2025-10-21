@@ -1,11 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
-import dotenv from "dotenv";
 import { getPrompt, formatPrompt } from "../utils/promptUtils";
-dotenv.config();
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const getAI = (apiKey: string) => new GoogleGenAI({ apiKey });
 
-export const generateEducationalContent = async (topic: string, level: string, description: string) => {
+export const generateEducationalContent = async (topic: string, level: string, description: string, apiKey: string) => {
   // Get the prompt template from prompts.md
   const promptTemplate = getPrompt('Educational Content Generation Prompt');
   
@@ -17,6 +15,7 @@ export const generateEducationalContent = async (topic: string, level: string, d
   });
 
   try {
+    const ai = getAI(apiKey);
     // Use generateContent directly with the prompt string
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash",

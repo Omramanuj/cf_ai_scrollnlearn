@@ -1,69 +1,108 @@
-import { Request, Response } from "express";
-import { Topic }  from "../models/topicModel";
-import { Card } from "../models/cardModel";
 import { generateEducationalContent } from "../services/llmService";
+import { getDB } from "../config/db";
+import { getTopicCollection, Topic } from "../models/topicModel";
+import { getCardCollection, Card } from "../models/cardModel";
 
-export const generateContent = async (req: Request, res: Response):Promise<any> => {
-  const { topic, level,description } = req.body;
-
-  if (!topic || !level) {
-    return res.status(400).json({ error: "Topic and level are required" });
-  }
-
+export const generateContent = async (request: Request, env: any): Promise<Response> => {
   try {
-    // let existingTopic = await Topic.findOne({ topic, level }).populate("content");
+    const body = await request.json();
+    const { topic, level, description } = body;
 
+    if (!topic || !level) {
+      return new Response(JSON.stringify({ error: "Topic and level are required" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const db = await getDB(env);
+    const topicCollection = await getTopicCollection(db);
+    const cardCollection = await getCardCollection(db);
+
+    // Check if topic already exists
+    // const existingTopic = await topicCollection.findOne({ topic, level });
     // if (existingTopic) {
     //   console.log("Topic found in DB. Returning existing content.");
-    //   return res.status(200).json(existingTopic);
+    //   return new Response(JSON.stringify(existingTopic), {
+    //     status: 200,
+    //     headers: { 'Content-Type': 'application/json' }
+    //   });
     // }
 
-    let content = await generateEducationalContent(topic, level,description);
+    let content = await generateEducationalContent(topic, level, description, env.GEMINI_API_KEY);
     if (!content) {
-      return res.status(500);
+      return new Response(JSON.stringify({ error: "Failed to generate content" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-    // console.log("content type : ",typeof content);
-     console.log("content : ",content);
+
+    console.log("content : ", content);
     
-     let parsedContent;
-     try {
-       parsedContent = JSON.parse(content);
-       console.log("Parsed content succesfully \n" );
-     } catch (error) {
-       console.error("Error parsing JSON:", error, content);
-       return res.status(500).json({ error: "Invalid JSON from AI response" });
-     }
-     if (!parsedContent.content || !Array.isArray(parsedContent.content)) {
-      return res.status(500).json({ error: "Invalid content format" });
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(content);
+      console.log("Parsed content successfully");
+    } catch (error) {
+      console.error("Error parsing JSON:", error, content);
+      return new Response(JSON.stringify({ error: "Invalid JSON from AI response" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!parsedContent.content || !Array.isArray(parsedContent.content)) {
+      return new Response(JSON.stringify({ error: "Invalid content format" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     let cardDocuments;
     try {
       console.log("Attempting to insert cards into DB...");
-       cardDocuments = await Card.insertMany(
-        parsedContent.content.map((card: { title: string; htmlContent: string }) => ({
-          title: card.title,
-          htmlContent: card.htmlContent,
-        }))
-      );
-      console.log("Cards inserted successfully:", cardDocuments.length);
+      const cardsToInsert = parsedContent.content.map((card: { title: string; htmlContent: string }) => ({
+        title: card.title,
+        htmlContent: card.htmlContent,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+      
+      const result = await cardCollection.insertMany(cardsToInsert);
+      cardDocuments = result.insertedIds;
+      console.log("Cards inserted successfully:", Object.keys(cardDocuments).length);
     } catch (err) {
       console.error("Error while inserting cards:", err);
-      return res.status(500).json({ error: "Failed to insert cards into DB" });
+      return new Response(JSON.stringify({ error: "Failed to insert cards into DB" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    const cardIds = cardDocuments.map((card) => card._id);
+    const cardIds = Object.values(cardDocuments);
     console.log("Card IDs saved:", cardIds);
     
-    const newTopic = new Topic({
-      topic:parsedContent.topic,
+    const newTopic: Topic = {
+      topic: parsedContent.topic,
       level: parsedContent.level,
-      content: cardDocuments.map((card) => card._id),
-    })
-    await newTopic.save();
+      content: cardIds,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const topicResult = await topicCollection.insertOne(newTopic);
+    newTopic._id = topicResult.insertedId;
+    
     console.log("New topic saved to DB:", newTopic);
-    return res.status(201).json(newTopic); 
+    return new Response(JSON.stringify(newTopic), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    return res.status(500);
+    console.error("Error in generateContent:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };

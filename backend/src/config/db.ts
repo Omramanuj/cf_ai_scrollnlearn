@@ -1,21 +1,37 @@
-import mongoose from 'mongoose';
-require('dotenv').config(); // For environment variables
+import { MongoClient } from 'mongodb';
 
-// Get connection string from environment variables or use directly
-const uri = process.env.MONGODB_URI;
-// Replace <username>, <password>, and <cluster-url> with your actual values
+// Global variable to store the client connection
+let client: MongoClient | null = null;
 
-const connectDB = async () => {
+export const connectDB = async (env: any) => {
   try {
+    if (client) {
+      return client;
+    }
+
+    const uri = env.MONGODB_URI;
     if (!uri) {
       throw new Error('MongoDB URI is not defined in environment variables');
     }
-    await mongoose.connect(uri);
+
+    client = new MongoClient(uri);
+    await client.connect();
     console.log('MongoDB Atlas connected successfully');
+    return client;
   } catch (error) {
     console.error('MongoDB Atlas connection error:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
-export default connectDB;
+export const getDB = async (env: any) => {
+  const client = await connectDB(env);
+  return client.db('scrolllearn');
+};
+
+export const closeDB = async () => {
+  if (client) {
+    await client.close();
+    client = null;
+  }
+};

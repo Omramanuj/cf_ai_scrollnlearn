@@ -1,0 +1,16 @@
+name = "scrolllearn-backend"
+main = "src/index.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "scrolllearn-backend"
+
+[env.staging]
+name = "scrolllearn-backend-staging"
+
+# Environment variables (set these in Cloudflare dashboard or via wrangler)
+[vars]
+# These will be set via wrangler secret put or Cloudflare dashboard
+# MONGODB_URI = "your-mongodb-connection-string"
+# GEMINI_API_KEY = "your-gemini-api-key"
